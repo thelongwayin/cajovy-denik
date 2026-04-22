@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Čajový deník</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0c07;
+    --bg2: #16120b;
+    --surface: rgba(255,255,255,0.07);
+    --surface2: rgba(255,255,255,0.11);
+    --border: rgba(255,255,255,0.13);
+    --gold: #d4b47a;
+    --gold2: #b08848;
+    --text: #f5efe4;
+    --text2: #d0bc9e;
+    --text3: #a08e76;
+    --text4: #6a5a48;
+    --danger: rgba(180,60,60,0.15);
+    --danger-border: rgba(180,60,60,0.25);
+    --danger-text: #d08888;
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    max-width: 480px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+  body { position: relative; }
+
+/* NOISE TEXTURE */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘noise’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23noise)’ opacity=‘0.04’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 0;
+opacity: 0.6;
+}
+
+/* VIEWS */
+.view { display: none; position: relative; z-index: 1; min-height: 100vh; }
+.view.active { display: block; }
+
+/* SCROLLABLE CONTENT */
+.scroll-area { padding-bottom: 120px; }
+
+/* HEADER */
+.header { padding: 44px 22px 16px; }
+.header-eyebrow { font-size: 10px; letter-spacing: 4px; color: var(–text3); text-transform: uppercase; margin-bottom: 4px; font-family: ‘Crimson Pro’, serif; }
+.header-title { font-size: 34px; font-weight: 700; color: var(–text); letter-spacing: -0.5px; }
+.header-sub { font-size: 13px; color: var(–text3); font-style: italic; margin-top: 3px; font-family: ‘Crimson Pro’, serif; }
+
+/* SEARCH */
+.search-wrap { padding: 0 22px 16px; }
+.search-input {
+width: 100%; background: var(–surface); border: 1px solid var(–border);
+border-radius: 14px; padding: 11px 16px; color: var(–text);
+font-size: 15px; font-family: ‘Cormorant Garamond’, serif; outline: none;
+transition: border-color 0.2s;
+}
+.search-input:focus { border-color: rgba(200,168,120,0.35); }
+.search-input::placeholder { color: var(–text4); }
+
+/* TEA LIST */
+.tea-list { padding: 0 22px; display: flex; flex-direction: column; gap: 10px; }
+
+/* TEA CARD */
+.tea-card {
+background: var(–surface); border: 1px solid var(–border);
+border-radius: 16px; padding: 14px 16px;
+display: flex; gap: 14px; align-items: center;
+cursor: pointer; transition: background 0.2s, transform 0.15s;
+-webkit-tap-highlight-color: transparent;
+}
+.tea-card:active { transform: scale(0.98); background: var(–surface2); }
+.tea-thumb {
+width: 56px; height: 56px; border-radius: 12px; overflow: hidden;
+flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+font-size: 26px;
+}
+.tea-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.tea-info { flex: 1; min-width: 0; }
+.tea-name { font-size: 18px; font-weight: 600; color: var(–text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tea-tags { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+.tea-meta { display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
+.meta-item { font-size: 11px; color: var(–text2); font-family: ‘Crimson Pro’, serif; }
+.tea-arrow { color: var(–text3); font-size: 20px; }
+
+/* TAG */
+.tag {
+border-radius: 20px; padding: 2px 10px; font-size: 11px;
+font-family: ‘Cormorant Garamond’, serif; letter-spacing: 0.5px;
+}
+.origin-tag { font-size: 11px; color: var(–text3); font-family: ‘Crimson Pro’, serif; }
+
+/* EMPTY */
+.empty { text-align: center; padding: 70px 0; color: var(–text4); }
+.empty-icon { font-size: 52px; margin-bottom: 14px; }
+.empty-text { font-size: 18px; font-style: italic; color: var(–text3); }
+.empty-sub { font-size: 13px; margin-top: 6px; font-family: ‘Crimson Pro’, serif; }
+
+/* FAB */
+.fab {
+position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+background: linear-gradient(135deg, #d4b484, #a07848);
+border: none; border-radius: 30px; color: #1a1108;
+font-family: ‘Cormorant Garamond’, serif; font-size: 17px; font-weight: 700;
+padding: 14px 38px; cursor: pointer;
+box-shadow: 0 4px 28px rgba(180,130,70,0.4);
+letter-spacing: 0.5px; z-index: 200;
+transition: transform 0.15s, box-shadow 0.15s;
+-webkit-tap-highlight-color: transparent;
+}
+.fab:active { transform: translateX(-50%) scale(0.96); box-shadow: 0 2px 14px rgba(180,130,70,0.3); }
+
+/* BACK BUTTON */
+.back-btn {
+background: rgba(255,255,255,0.08); border: none; border-radius: 20px;
+color: var(–text2); padding: 7px 16px; cursor: pointer;
+font-family: ‘Cormorant Garamond’, serif; font-size: 15px;
+-webkit-tap-highlight-color: transparent;
+}
+
+/* FORM */
+.form-wrap { padding: 0 22px 20px; }
+.field { margin-bottom: 16px; }
+.field-label {
+display: block; font-size: 10px; letter-spacing: 2.5px; color: var(–text3);
+font-family: ‘Crimson Pro’, serif; margin-bottom: 6px; text-transform: uppercase;
+}
+.field-input {
+width: 100%; background: var(–surface); border: 1px solid var(–border);
+border-radius: 11px; padding: 11px 14px; color: var(–text);
+font-size: 15px; font-family: ‘Cormorant Garamond’, serif; outline: none;
+transition: border-color 0.2s;
+}
+.field-input:focus { border-color: rgba(200,168,120,0.35); }
+.field-input::placeholder { color: var(–text4); }
+.field-input.with-unit { padding-right: 40px; }
+.input-wrap { position: relative; }
+.input-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(–text3); font-size: 12px; font-family: ‘Crimson Pro’, serif; pointer-events: none; }
+.field-textarea {
+width: 100%; background: var(–surface); border: 1px solid var(–border);
+border-radius: 11px; padding: 11px 14px; color: var(–text);
+font-size: 14px; font-family: ‘Crimson Pro’, serif; outline: none;
+resize: vertical; min-height: 80px; line-height: 1.6;
+transition: border-color 0.2s;
+}
+.field-textarea:focus { border-color: rgba(200,168,120,0.35); }
+.field-textarea::placeholder { color: var(–text4); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* CHIP SELECTOR */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+background: var(–surface); border: 1px solid var(–border);
+border-radius: 20px; padding: 6px 14px; color: var(–text3);
+font-size: 13px; font-family: ‘Cormorant Garamond’, serif;
+cursor: pointer; transition: all 0.15s;
+-webkit-tap-highlight-color: transparent;
+}
+.chip.selected { color: var(–gold); border-color: var(–gold2); background: rgba(200,168,120,0.12); }
+.chip:active { transform: scale(0.95); }
+
+/* PHOTO UPLOAD */
+.photo-upload {
+width: 100%; height: 150px; background: var(–surface);
+border: 1.5px dashed rgba(255,255,255,0.13); border-radius: 14px;
+display: flex; align-items: center; justify-content: center;
+cursor: pointer; overflow: hidden; position: relative;
+transition: border-color 0.2s;
+}
+.photo-upload:active { border-color: var(–gold2); }
+.photo-upload img { width: 100%; height: 100%; object-fit: cover; }
+.photo-placeholder { text-align: center; color: var(–text4); }
+.photo-placeholder-icon { font-size: 30px; margin-bottom: 5px; }
+.photo-placeholder-text { font-size: 12px; font-family: ‘Crimson Pro’, serif; }
+
+/* STEEPS */
+.section-title {
+font-size: 10px; letter-spacing: 2.5px; color: var(–text3);
+text-transform: uppercase; font-family: ‘Crimson Pro’, serif;
+margin-bottom: 12px;
+}
+.steep-row {
+background: var(–surface); border: 1px solid var(–border);
+border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+display: flex; align-items: center; gap: 10px;
+}
+.steep-num {
+width: 26px; height: 26px; border-radius: 50%;
+background: rgba(200,168,120,0.12); border: 1px solid rgba(200,168,120,0.25);
+display: flex; align-items: center; justify-content: center;
+font-size: 12px; color: var(–gold); flex-shrink: 0; font-family: ‘Crimson Pro’, serif;
+}
+.steep-fields { flex: 1; display: flex; gap: 8px; }
+.steep-field-wrap { flex: 1; }
+.steep-label { font-size: 9px; letter-spacing: 2px; color: var(–text3); text-transform: uppercase; font-family: ‘Crimson Pro’, serif; margin-bottom: 3px; }
+.steep-input {
+width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+border-radius: 8px; padding: 7px 28px 7px 10px; color: var(–text);
+font-size: 14px; font-family: ‘Cormorant Garamond’, serif; outline: none;
+transition: border-color 0.2s;
+}
+.steep-input:focus { border-color: rgba(200,168,120,0.3); }
+.steep-input::placeholder { color: var(–text4); }
+.steep-input-wrap { position: relative; }
+.steep-unit { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(–text4); pointer-events: none; font-family: ‘Crimson Pro’, serif; }
+.steep-toggle {
+width: 30px; height: 30px; border-radius: 8px;
+background: transparent; border: 1px solid rgba(255,255,255,0.1);
+color: var(–text3); cursor: pointer; display: flex; align-items: center;
+justify-content: center; font-size: 16px; flex-shrink: 0;
+transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.steep-toggle.active { background: rgba(200,168,120,0.12); border-color: rgba(200,168,120,0.3); color: var(–gold); }
+
+/* TEAPOTS MANAGEMENT */
+.teapot-manage-row {
+display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.teapot-manage-input {
+flex: 1; background: var(–surface); border: 1px solid var(–border);
+border-radius: 11px; padding: 10px 14px; color: var(–text);
+font-size: 14px; font-family: ‘Cormorant Garamond’, serif; outline: none;
+transition: border-color 0.2s;
+}
+.teapot-manage-input:focus { border-color: rgba(200,168,120,0.35); }
+.teapot-manage-input::placeholder { color: var(–text4); }
+.teapot-add-btn {
+background: rgba(200,168,120,0.15); border: 1px solid rgba(200,168,120,0.25);
+border-radius: 11px; color: var(–gold); padding: 10px 16px;
+cursor: pointer; font-size: 18px; font-family: ‘Cormorant Garamond’, serif;
+-webkit-tap-highlight-color: transparent; transition: all 0.15s;
+}
+.teapot-add-btn:active { transform: scale(0.95); }
+.teapot-list-item {
+display: flex; align-items: center; justify-content: space-between;
+background: var(–surface); border: 1px solid var(–border);
+border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;
+}
+.teapot-item-name { font-size: 14px; color: var(–text2); }
+.teapot-delete-btn {
+background: none; border: none; color: var(–text4); cursor: pointer;
+font-size: 16px; padding: 2px 6px; -webkit-tap-highlight-color: transparent;
+transition: color 0.15s;
+}
+.teapot-delete-btn:active { color: var(–danger-text); }
+
+/* SAVE BTN */
+.save-btn {
+width: 100%; padding: 15px; background: linear-gradient(135deg, #d4b484, #a07848);
+border: none; border-radius: 14px; color: #1a1108;
+font-family: ‘Cormorant Garamond’, serif; font-size: 17px; font-weight: 700;
+cursor: pointer; box-shadow: 0 4px 20px rgba(180,130,70,0.3);
+transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+margin-top: 4px;
+}
+.save-btn:disabled { background: var(–surface2); color: var(–text4); box-shadow: none; cursor: not-allowed; }
+.save-btn:not(:disabled):active { transform: scale(0.98); }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(–border); margin: 20px 0; }
+
+/* DETAIL VIEW */
+.detail-hero {
+position: relative;
+background: var(–surface2); overflow: hidden;
+border-radius: 0 0 24px 24px;
+}
+.detail-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-hero-emoji { display: flex; align-items: center; justify-content: center; height: 220px; font-size: 64px; }
+.detail-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 50%, rgba(15,12,7,0.82) 100%); }
+.detail-hero-back { position: absolute; top: 16px; left: 16px; z-index: 2; }
+.detail-hero-content { position: absolute; bottom: 16px; left: 20px; right: 20px; z-index: 2; }
+.detail-name { font-size: 30px; font-weight: 700; color: #fff; line-height: 1.1; margin-bottom: 6px; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+.detail-body { padding: 20px 22px 0; }
+.detail-section { margin-bottom: 20px; }
+.detail-section-label { font-size: 10px; letter-spacing: 2.5px; color: var(–text3); text-transform: uppercase; font-family: ‘Crimson Pro’, serif; margin-bottom: 5px; }
+.detail-section-value { font-size: 16px; color: var(–text2); font-family: ‘Crimson Pro’, serif; line-height: 1.5; }
+.params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.param-card {
+background: var(–surface); border: 1px solid var(–border);
+border-radius: 12px; padding: 12px 14px;
+}
+.param-icon { font-size: 18px; margin-bottom: 2px; }
+.param-label { font-size: 9px; color: var(–text3); letter-spacing: 2px; text-transform: uppercase; font-family: ‘Crimson Pro’, serif; }
+.param-value { font-size: 21px; color: var(–text); font-weight: 600; line-height: 1.2; }
+.param-unit { font-size: 12px; color: var(–text3); }
+.notes-card {
+background: rgba(200,168,120,0.08); border: 1px solid rgba(200,168,120,0.18);
+border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+}
+.delete-btn {
+width: 100%; padding: 13px; background: var(–danger); border: 1px solid var(–danger-border);
+border-radius: 12px; color: var(–danger-text);
+font-family: ‘Cormorant Garamond’, serif; font-size: 15px; cursor: pointer;
+-webkit-tap-highlight-color: transparent;
+}
+
+/* STEEPS DETAIL */
+.steeps-detail { margin-bottom: 20px; }
+.steep-detail-row {
+display: flex; align-items: center; gap: 10px;
+padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.steep-detail-row:last-child { border-bottom: none; }
+.steep-detail-num {
+width: 28px; height: 28px; border-radius: 50%;
+background: rgba(200,168,120,0.1); border: 1px solid rgba(200,168,120,0.2);
+display: flex; align-items: center; justify-content: center;
+font-size: 12px; color: var(–gold); flex-shrink: 0; font-family: ‘Crimson Pro’, serif;
+}
+.steep-detail-info { flex: 1; display: flex; gap: 16px; }
+.steep-detail-item { font-size: 14px; color: var(–text2); font-family: ‘Crimson Pro’, serif; }
+.steep-detail-item span { color: var(–text3); font-size: 11px; }
+
+/* SETTINGS VIEW */
+.settings-section { padding: 0 22px; margin-bottom: 24px; }
+
+/* MODAL */
+.modal-overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+z-index: 500; display: flex; align-items: flex-end; justify-content: center;
+opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+background: #1a1610; border: 1px solid var(–border);
+border-radius: 24px 24px 0 0; padding: 24px 22px 40px;
+width: 100%; max-width: 480px;
+transform: translateY(100%); transition: transform 0.25s ease;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title { font-size: 22px; font-weight: 600; margin-bottom: 16px; color: var(–text); }
+.modal-btn {
+width: 100%; padding: 13px; border: 1px solid var(–border);
+border-radius: 12px; background: var(–surface); color: var(–text2);
+font-family: ‘Cormorant Garamond’, serif; font-size: 15px; cursor: pointer;
+margin-bottom: 8px; text-align: left; -webkit-tap-highlight-color: transparent;
+transition: all 0.15s;
+}
+.modal-btn:active { background: var(–surface2); }
+.modal-btn.cancel { color: var(–danger-text); border-color: var(–danger-border); background: var(–danger); }
+.modal-btn.confirm-delete { color: var(–danger-text); border-color: var(–danger-border); background: var(–danger); }
+
+/* CROP MODAL */
+.crop-overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+z-index: 600; display: flex; flex-direction: column;
+align-items: center; justify-content: center;
+opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.crop-overlay.open { opacity: 1; pointer-events: all; }
+.crop-header {
+width: 100%; max-width: 480px; padding: 16px 22px 12px;
+display: flex; align-items: center; justify-content: space-between;
+flex-shrink: 0;
+}
+.crop-title { font-size: 18px; font-weight: 600; color: var(–text); }
+.crop-hint { font-size: 12px; color: var(–text3); font-family: ‘Crimson Pro’, serif; text-align: center; margin-bottom: 10px; }
+.crop-stage-wrap {
+position: relative; overflow: hidden;
+width: 100%; max-width: 480px; flex-shrink: 0;
+touch-action: none;
+}
+.crop-canvas { display: block; width: 100%; }
+/* Square crop frame overlay */
+.crop-frame-overlay {
+position: absolute; inset: 0; pointer-events: none;
+}
+.crop-actions {
+width: 100%; max-width: 480px; padding: 14px 22px 30px;
+display: flex; gap: 10px; flex-shrink: 0;
+}
+.crop-btn {
+flex: 1; padding: 13px; border-radius: 12px; border: none;
+font-family: ‘Cormorant Garamond’, serif; font-size: 16px; cursor: pointer;
+-webkit-tap-highlight-color: transparent;
+}
+.crop-btn-confirm { background: linear-gradient(135deg, #d4b484, #a07848); color: #1a1108; font-weight: 700; }
+.crop-btn-cancel { background: var(–surface); border: 1px solid var(–border) !important; color: var(–text2); }
+.crop-zoom-row {
+width: 100%; max-width: 480px; padding: 8px 22px 0;
+display: flex; align-items: center; gap: 12px;
+}
+.crop-zoom-label { font-size: 11px; color: var(–text3); font-family: ‘Crimson Pro’, serif; white-space: nowrap; }
+.crop-zoom-slider {
+flex: 1; -webkit-appearance: none; appearance: none;
+height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none;
+}
+.crop-zoom-slider::-webkit-slider-thumb {
+-webkit-appearance: none; width: 18px; height: 18px;
+border-radius: 50%; background: var(–gold); cursor: pointer;
+}
+.crop-aspect-row {
+width: 100%; max-width: 480px; padding: 10px 22px 0;
+display: flex; gap: 8px;
+}
+.crop-aspect-btn {
+flex: 1; padding: 7px 4px; background: var(–surface); border: 1px solid var(–border);
+border-radius: 10px; color: var(–text3); font-family: ‘Cormorant Garamond’, serif;
+font-size: 13px; cursor: pointer; text-align: center;
+-webkit-tap-highlight-color: transparent; transition: all 0.15s;
+}
+.crop-aspect-btn.active { background: rgba(200,168,120,0.12); border-color: var(–gold2); color: var(–gold); }
+
+/* SETTINGS TAB */
+.bottom-nav {
+position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+width: 100%; max-width: 480px; background: rgba(15,12,7,0.95);
+border-top: 1px solid var(–border); padding: 10px 0 20px;
+display: flex; justify-content: space-around; z-index: 100;
+backdrop-filter: blur(12px);
+}
+.nav-btn {
+display: flex; flex-direction: column; align-items: center; gap: 3px;
+background: none; border: none; cursor: pointer; padding: 6px 20px;
+-webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
+}
+.nav-btn:active { opacity: 0.6; }
+.nav-icon { font-size: 22px; }
+.nav-label { font-size: 10px; letter-spacing: 1px; font-family: ‘Crimson Pro’, serif; text-transform: uppercase; }
+.nav-btn.active .nav-label { color: var(–gold); }
+.nav-btn:not(.active) .nav-label { color: var(–text4); }
+.nav-btn.active .nav-icon { filter: none; }
+.nav-btn:not(.active) .nav-icon { opacity: 0.45; }
+</style>
+
+</head>
+<body>
+
+<!-- LIST VIEW -->
+
+<div id="view-list" class="view active">
+  <div class="scroll-area">
+    <div class="header">
+      <div class="header-eyebrow">Čajový deník</div>
+      <div class="header-title">Moje čaje</div>
+      <div class="header-sub" id="tea-count">0 čajů v kolekci</div>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" id="search-input" placeholder="Hledat čaj…" oninput="renderList()">
+    </div>
+    <div class="tea-list" id="tea-list"></div>
+  </div>
+  <button class="fab" onclick="openAdd()">+ Přidat čaj</button>
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="showView('list', this)">
+      <span class="nav-icon">🍵</span>
+      <span class="nav-label">Čaje</span>
+    </button>
+    <button class="nav-btn" onclick="showView('settings', this)">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Nastavení</span>
+    </button>
+  </div>
+</div>
+
+<!-- ADD / EDIT VIEW -->
+
+<div id="view-add" class="view">
+  <div class="scroll-area">
+    <div class="header" style="display:flex;align-items:center;gap:14px;padding-bottom:10px">
+      <button class="back-btn" onclick="closeAdd()">‹</button>
+      <div>
+        <div class="header-eyebrow" id="form-eyebrow">Nový záznam</div>
+        <div class="header-title" id="form-title">Přidat čaj</div>
+      </div>
+    </div>
+
+```
+<div class="form-wrap">
+  <!-- Photo -->
+  <div class="field">
+    <div class="photo-upload" onclick="document.getElementById('photo-input').click()" id="photo-upload">
+      <div class="photo-placeholder">
+        <div class="photo-placeholder-icon">📷</div>
+        <div class="photo-placeholder-text">Přidat fotku</div>
+      </div>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+  </div>
+
+  <!-- Name -->
+  <div class="field">
+    <label class="field-label">Název čaje</label>
+    <input class="field-input" id="f-name" placeholder="Např. Gyokuro Yame…" oninput="checkSave()">
+  </div>
+
+  <!-- Origin -->
+  <div class="field">
+    <label class="field-label">Původ / pěstitel</label>
+    <input class="field-input" id="f-origin" placeholder="Např. Japonsko, Uji…">
+  </div>
+
+  <!-- Type -->
+  <div class="field">
+    <label class="field-label">Typ čaje</label>
+    <div class="chips" id="type-chips"></div>
+  </div>
+
+  <!-- Teapot -->
+  <div class="field">
+    <label class="field-label">Konvička</label>
+    <div class="chips" id="teapot-chips"></div>
+    <div style="margin-top:8px">
+      <span style="font-size:11px;color:var(--text4);font-family:'Crimson Pro',serif">Vlastní konvičky spravuj v <span style="color:var(--text3);cursor:pointer;text-decoration:underline" onclick="closeAdd();showView('settings',document.querySelectorAll('.nav-btn')[1])">Nastavení</span></span>
+    </div>
+  </div>
+
+  <!-- Gramaz + Teplota -->
+  <div class="two-col">
+    <div class="field">
+      <label class="field-label">Gramáž</label>
+      <div class="input-wrap">
+        <input class="field-input with-unit" id="f-grams" type="number" placeholder="3">
+        <span class="input-unit">g</span>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Objem vody</label>
+      <div class="input-wrap">
+        <input class="field-input with-unit" id="f-volume" type="number" placeholder="150">
+        <span class="input-unit">ml</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steeps -->
+  <div class="field">
+    <div class="section-title">Nálevy (až 6)</div>
+    <div id="steeps-rows"></div>
+  </div>
+
+  <!-- Notes -->
+  <div class="field">
+    <label class="field-label">Poznámky &amp; chuťový profil</label>
+    <textarea class="field-textarea" id="f-notes" placeholder="Jak chutnal? Barva, vůně, pocit…"></textarea>
+  </div>
+
+  <button class="save-btn" id="save-btn" onclick="saveTea()" disabled>Uložit čaj</button>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- DETAIL VIEW -->
+
+<div id="view-detail" class="view">
+  <div class="scroll-area">
+    <div class="detail-hero" id="detail-hero">
+      <div class="detail-hero-overlay"></div>
+      <div class="detail-hero-back">
+        <button class="back-btn" onclick="closeDetail()">‹ Zpět</button>
+      </div>
+      <div class="detail-hero-content" id="detail-hero-content"></div>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- SETTINGS VIEW -->
+
+<div id="view-settings" class="view">
+  <div class="scroll-area">
+    <div class="header">
+      <div class="header-eyebrow">Nastavení</div>
+      <div class="header-title">Moje konvičky</div>
+      <div class="header-sub">Přidej vlastní konvičky pro filtrování</div>
+    </div>
+
+```
+<div class="settings-section">
+  <div class="section-title">Záloha dat</div>
+  <div style="font-size:13px;color:var(--text3);font-family:'Crimson Pro',serif;margin-bottom:14px;line-height:1.6">
+    Exportuj zálohu jako soubor a ulož ji bezpečně. Import načte zálohu zpět — stávající data budou zachována (sloučení).
+  </div>
+  <button onclick="exportData()" style="width:100%;padding:13px;background:rgba(200,168,120,0.1);border:1px solid rgba(200,168,120,0.2);border-radius:12px;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;margin-bottom:10px;text-align:left">
+    ⬇ Exportovat zálohu (.json)
+  </button>
+  <button onclick="document.getElementById('import-input').click()" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;text-align:left">
+    ⬆ Importovat zálohu
+  </button>
+  <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+  <div id="import-status" style="margin-top:10px;font-size:13px;font-family:'Crimson Pro',serif;color:var(--text3);min-height:18px"></div>
+  <div class="divider"></div>
+</div>
+
+<div class="settings-section">
+  <div class="section-title">Přidat konvičku</div>
+  <div class="teapot-manage-row">
+    <input class="teapot-manage-input" id="new-teapot-input" placeholder="Název konvičky…" onkeydown="if(event.key==='Enter')addTeapot()">
+    <button class="teapot-add-btn" onclick="addTeapot()">+</button>
+  </div>
+  <div class="divider"></div>
+  <div class="section-title">Moje konvičky</div>
+  <div id="teapot-manage-list"></div>
+</div>
+```
+
+  </div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="showView('list', this)">
+      <span class="nav-icon">🍵</span>
+      <span class="nav-label">Čaje</span>
+    </button>
+    <button class="nav-btn active" onclick="showView('settings', this)">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Nastavení</span>
+    </button>
+  </div>
+</div>
+
+<!-- CROP MODAL -->
+
+<div class="crop-overlay" id="crop-overlay">
+  <div class="crop-header">
+    <div class="crop-title">Oříznout fotku</div>
+    <button class="back-btn" onclick="closeCrop(false)">✕</button>
+  </div>
+  <div class="crop-hint">Přetáhni obrázek, přibliž posuvníkem</div>
+  <div class="crop-aspect-row">
+    <button class="crop-aspect-btn active" onclick="setCropAspect(1,1,this)">1 : 1</button>
+    <button class="crop-aspect-btn" onclick="setCropAspect(4,3,this)">4 : 3</button>
+    <button class="crop-aspect-btn" onclick="setCropAspect(16,9,this)">16 : 9</button>
+    <button class="crop-aspect-btn" onclick="setCropAspect(3,4,this)">3 : 4</button>
+    <button class="crop-aspect-btn" onclick="setCropAspect(9,16,this)">9 : 16</button>
+  </div>
+  <div class="crop-zoom-row">
+    <span class="crop-zoom-label">🔍 Zoom</span>
+    <input type="range" class="crop-zoom-slider" id="crop-zoom" min="100" max="300" value="100" oninput="setCropZoom(this.value)">
+  </div>
+  <div class="crop-stage-wrap" id="crop-stage-wrap">
+    <canvas id="crop-canvas" class="crop-canvas"></canvas>
+    <canvas id="crop-frame-canvas" class="crop-frame-overlay" style="position:absolute;inset:0;width:100%;pointer-events:none"></canvas>
+  </div>
+  <div class="crop-actions">
+    <button class="crop-btn crop-btn-cancel" onclick="closeCrop(false)">Zrušit</button>
+    <button class="crop-btn crop-btn-confirm" onclick="closeCrop(true)">Použít ořez</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Smazat čaj?</div>
+    <button class="modal-btn confirm-delete" id="modal-confirm">Smazat</button>
+    <button class="modal-btn cancel" onclick="closeModal()">Zrušit</button>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────
+const TEA_TYPES = ["Zelený","Bílý","Žlutý","Oolong","Černý","Pu-erh","Matcha","Jiný"];
+const TYPE_COLORS = {
+  "Zelený":"#7a9e7e","Bílý":"#c8b99a","Žlutý":"#d4aa5c",
+  "Oolong":"#b07d5b","Černý":"#7a5c4a","Pu-erh":"#9a7060",
+  "Matcha":"#6a8a62","Jiný":"#888"
+};
+
+let teas = [];
+let teapots = [];
+try { teas = JSON.parse(localStorage.getItem('caj-denik-teas') || '[]'); } catch(e) { teas = []; }
+try { teapots = JSON.parse(localStorage.getItem('caj-denik-teapots') || '["Kyūsu","Gaiwán","Tetsubin","Shiboridashi","Hohin"]'); } catch(e) { teapots = ["Kyūsu","Gaiwán","Tetsubin","Shiboridashi","Hohin"]; }
+
+let editingId = null;
+let currentDetailId = null;
+let formPhoto = null;
+let formPhotoPreview = null;
+let formPhotoAspectW = 1;
+let formPhotoAspectH = 1;
+let steepData = [];
+let _selectedType = '';
+let _selectedTeapot = '';
+
+function save() {
+  try { localStorage.setItem('caj-denik-teas', JSON.stringify(teas)); } catch(e) {}
+}
+function saveTeapots() {
+  try { localStorage.setItem('caj-denik-teapots', JSON.stringify(teapots)); } catch(e) {}
+}
+function plural(n, one, few, many) {
+  if (n===1) return one; if (n>=2&&n<=4) return few; return many;
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── NAVIGATION ─────────────────────────────────────────────────────────
+function showView(name, navBtn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (navBtn) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      if (b.textContent.trim() === navBtn.textContent.trim()) b.classList.add('active');
+    });
+  }
+  if (name === 'settings') renderTeapotManage();
+  if (name === 'list') renderList();
+}
+
+// ─── LIST ────────────────────────────────────────────────────────────────
+function renderList() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const filtered = teas.filter(t =>
+    t.name.toLowerCase().includes(q) ||
+    (t.origin||'').toLowerCase().includes(q) ||
+    (t.type||'').toLowerCase().includes(q)
+  );
+  const list = document.getElementById('tea-list');
+  const count = document.getElementById('tea-count');
+  count.textContent = teas.length + ' ' + plural(teas.length,'čaj','čaje','čajů') + ' v kolekci';
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🍃</div><div class="empty-text">${teas.length===0?'Ještě žádný čaj':'Nic nenalezeno'}</div><div class="empty-sub">${teas.length===0?'Přidej svůj první čaj tlačítkem níže':''}</div></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(t => {
+    const col = TYPE_COLORS[t.type] || '#888';
+    const thumb = t.photo ? `<img src="${t.photo}" alt="${esc(t.name)}">` : '🍃';
+    const tag = t.type ? `<span class="tag" style="background:${col}22;color:${col};border:1px solid ${col}44">${esc(t.type)}</span>` : '';
+    const origin = t.origin ? `<span class="origin-tag">${esc(t.origin)}</span>` : '';
+    const grams = t.grams ? `<span class="meta-item">⚖ ${esc(t.grams)}g</span>` : '';
+    const vol = t.volume ? `<span class="meta-item">💧 ${esc(t.volume)}ml</span>` : '';
+    const teapot = t.teapot ? `<span class="meta-item">🫖 ${esc(t.teapot)}</span>` : '';
+    const firstSteep = (t.steeps||[]).find(s=>s.enabled);
+    const steepMeta = firstSteep ? `<span class="meta-item">⏱ ${esc(firstSteep.time)}s${firstSteep.temp?' / '+esc(firstSteep.temp)+'°C':''}</span>` : '';
+    return `<div class="tea-card" onclick="openDetail('${esc(t.id)}')">
+      <div class="tea-thumb" style="background:${col}22">${thumb}</div>
+      <div class="tea-info">
+        <div class="tea-name">${esc(t.name)}</div>
+        <div class="tea-tags">${tag}${origin}</div>
+        <div class="tea-meta">${grams}${vol}${teapot}${steepMeta}</div>
+      </div>
+      <div class="tea-arrow">›</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── PHOTO ───────────────────────────────────────────────────────────────
+function renderPhotoPreview() {
+  const el = document.getElementById('photo-upload');
+  if (!el) return;
+  if (formPhotoPreview) {
+    el.innerHTML = `<img src="${formPhotoPreview}" alt="foto">`;
+  } else {
+    el.innerHTML = `<div class="photo-placeholder"><div class="photo-placeholder-icon">📷</div><div class="photo-placeholder-text">Přidat fotku</div></div>`;
+  }
+}
+
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => openCrop(ev.target.result);
+  reader.readAsDataURL(file);
+}
+
+// ─── ADD / EDIT ──────────────────────────────────────────────────────────
+function openAdd(editId) {
+  editingId = editId || null;
+  const t = editId ? teas.find(x => x.id === editId) : null;
+
+  document.getElementById('form-eyebrow').textContent = t ? 'Upravit záznam' : 'Nový záznam';
+  document.getElementById('form-title').textContent = t ? 'Upravit čaj' : 'Přidat čaj';
+
+  formPhoto = t ? (t.photo || null) : null;
+  formPhotoPreview = formPhoto;
+  formPhotoAspectW = t ? (t.photoAspectW || 1) : 1;
+  formPhotoAspectH = t ? (t.photoAspectH || 1) : 1;
+  renderPhotoPreview();
+
+  document.getElementById('f-name').value = t ? t.name : '';
+  document.getElementById('f-origin').value = t ? (t.origin||'') : '';
+  document.getElementById('f-grams').value = t ? (t.grams||'') : '';
+  document.getElementById('f-volume').value = t ? (t.volume||'') : '';
+  document.getElementById('f-notes').value = t ? (t.notes||'') : '';
+
+  steepData = t && t.steeps ? JSON.parse(JSON.stringify(t.steeps)) : [
+    {time:'',temp:'',enabled:true},
+    {time:'',temp:'',enabled:false},
+    {time:'',temp:'',enabled:false},
+    {time:'',temp:'',enabled:false},
+    {time:'',temp:'',enabled:false},
+    {time:'',temp:'',enabled:false},
+  ];
+  renderSteeps();
+
+  _selectedType = t ? (t.type||'') : '';
+  renderTypeChips(_selectedType);
+  _selectedTeapot = t ? (t.teapot||'') : '';
+  renderTeapotChips(_selectedTeapot);
+
+  checkSave();
+  showView('add');
+}
+
+function closeAdd() {
+  editingId = null;
+  formPhoto = null;
+  formPhotoPreview = null;
+  showView('list');
+}
+
+function renderTypeChips(selected) {
+  document.getElementById('type-chips').innerHTML = TEA_TYPES.map(t => {
+    const col = TYPE_COLORS[t];
+    const sel = selected === t;
+    return `<button class="chip${sel?' selected':''}" onclick="selectType('${t}')" style="${sel?`color:${col};border-color:${col}88;background:${col}1a`:''}">${t}</button>`;
+  }).join('');
+}
+
+function selectType(type) {
+  _selectedType = (_selectedType === type) ? '' : type;
+  renderTypeChips(_selectedType);
+}
+
+function renderTeapotChips(selected) {
+  if (teapots.length === 0) {
+    document.getElementById('teapot-chips').innerHTML = `<span style="font-size:12px;color:var(--text4);font-family:'Crimson Pro',serif">Žádné konvičky — přidej je v Nastavení</span>`;
+    return;
+  }
+  document.getElementById('teapot-chips').innerHTML = teapots.map(tp => {
+    const sel = selected === tp;
+    return `<button class="chip${sel?' selected':''}" onclick="selectTeapot(this,'${esc(tp)}')">${esc(tp)}</button>`;
+  }).join('');
+}
+
+function selectTeapot(btn, tp) {
+  _selectedTeapot = (_selectedTeapot === tp) ? '' : tp;
+  renderTeapotChips(_selectedTeapot);
+}
+
+function renderSteeps() {
+  document.getElementById('steeps-rows').innerHTML = steepData.map((s, i) => `
+    <div class="steep-row">
+      <div class="steep-num">${i+1}</div>
+      <div class="steep-fields">
+        <div class="steep-field-wrap">
+          <div class="steep-label">Čas louhování</div>
+          <div class="steep-input-wrap">
+            <input class="steep-input" type="number" placeholder="60" value="${esc(s.time)}"
+              ${!s.enabled?'disabled style="opacity:0.35"':''}
+              oninput="steepData[${i}].time=this.value">
+            <span class="steep-unit">s</span>
+          </div>
+        </div>
+        <div class="steep-field-wrap">
+          <div class="steep-label">Teplota</div>
+          <div class="steep-input-wrap">
+            <input class="steep-input" type="number" placeholder="80" value="${esc(s.temp)}"
+              ${!s.enabled?'disabled style="opacity:0.35"':''}
+              oninput="steepData[${i}].temp=this.value">
+            <span class="steep-unit">°C</span>
+          </div>
+        </div>
+      </div>
+      <button class="steep-toggle${s.enabled?' active':''}" onclick="toggleSteep(${i})">
+        ${s.enabled?'✓':'＋'}
+      </button>
+    </div>
+  `).join('');
+}
+
+function toggleSteep(i) {
+  steepData[i].enabled = !steepData[i].enabled;
+  renderSteeps();
+}
+
+function checkSave() {
+  const n = document.getElementById('f-name').value.trim();
+  document.getElementById('save-btn').disabled = !n;
+}
+
+function saveTea() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) return;
+  const tea = {
+    id: editingId || String(Date.now()),
+    name,
+    origin: document.getElementById('f-origin').value.trim(),
+    type: _selectedType,
+    teapot: _selectedTeapot,
+    grams: document.getElementById('f-grams').value.trim(),
+    volume: document.getElementById('f-volume').value.trim(),
+    steeps: steepData.map(s => ({...s})),
+    notes: document.getElementById('f-notes').value.trim(),
+    photo: formPhoto,
+    photoAspectW: formPhotoAspectW,
+    photoAspectH: formPhotoAspectH,
+    created: editingId ? ((teas.find(x=>x.id===editingId)||{}).created || Date.now()) : Date.now(),
+  };
+  if (editingId) {
+    teas = teas.map(t => t.id === editingId ? tea : t);
+  } else {
+    teas.unshift(tea);
+  }
+  save();
+  closeAdd();
+  renderList();
+}
+
+// ─── DETAIL ──────────────────────────────────────────────────────────────
+function openDetail(id) {
+  currentDetailId = id;
+  const t = teas.find(x => x.id === id);
+  if (!t) return;
+  const col = TYPE_COLORS[t.type] || '#888';
+
+  const hero = document.getElementById('detail-hero');
+  hero.style.background = col + '22';
+  const aw = t.photoAspectW || 1;
+  const ah = t.photoAspectH || 1;
+  const screenW = Math.min(window.innerWidth, 480);
+  const heroH = Math.min(screenW * (ah / aw), 420);
+  hero.style.height = heroH + 'px';
+
+  hero.querySelectorAll('img, .detail-hero-emoji').forEach(el => el.remove());
+
+  if (t.photo) {
+    const img = document.createElement('img');
+    img.src = t.photo; img.alt = t.name;
+    hero.insertBefore(img, hero.firstChild);
+  } else {
+    const em = document.createElement('div');
+    em.className = 'detail-hero-emoji'; em.textContent = '🍃';
+    hero.insertBefore(em, hero.firstChild);
+  }
+
+  const tag = t.type ? `<span class="tag" style="background:${col}33;color:#fff;border:1px solid ${col}66;text-shadow:0 1px 3px rgba(0,0,0,0.5)">${esc(t.type)}</span>` : '';
+  document.getElementById('detail-hero-content').innerHTML = `
+    <div class="detail-name">${esc(t.name)}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${tag}${t.origin?`<span style="font-size:12px;color:rgba(255,255,255,0.8);font-family:'Crimson Pro',serif;text-shadow:0 1px 4px rgba(0,0,0,0.6)">${esc(t.origin)}</span>`:''}</div>
+  `;
+
+  let params = '';
+  if (t.grams) params += `<div class="param-card"><div class="param-icon">⚖</div><div class="param-label">Gramáž</div><div class="param-value">${esc(t.grams)}<span class="param-unit"> g</span></div></div>`;
+  if (t.volume) params += `<div class="param-card"><div class="param-icon">💧</div><div class="param-label">Objem vody</div><div class="param-value">${esc(t.volume)}<span class="param-unit"> ml</span></div></div>`;
+  if (t.teapot) params += `<div class="param-card"><div class="param-icon">🫖</div><div class="param-label">Konvička</div><div class="param-value" style="font-size:15px">${esc(t.teapot)}</div></div>`;
+
+  const enabledSteeps = (t.steeps||[]).filter(s => s.enabled);
+  const steepsHtml = enabledSteeps.length > 0 ? `
+    <div class="detail-section">
+      <div class="detail-section-label">Nálevy</div>
+      <div class="steeps-detail">${enabledSteeps.map((s,i) => `
+        <div class="steep-detail-row">
+          <div class="steep-detail-num">${i+1}</div>
+          <div class="steep-detail-info">
+            ${s.time?`<div class="steep-detail-item">⏱ ${esc(s.time)}<span> s</span></div>`:''}
+            ${s.temp?`<div class="steep-detail-item">🌡 ${esc(s.temp)}<span> °C</span></div>`:''}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const notesHtml = t.notes ? `
+    <div class="notes-card">
+      <div class="detail-section-label">Poznámky</div>
+      <div class="detail-section-value">${esc(t.notes)}</div>
+    </div>` : '';
+
+  document.getElementById('detail-body').innerHTML = `
+    ${params ? `<div class="params-grid">${params}</div>` : ''}
+    ${steepsHtml}
+    ${notesHtml}
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      <button onclick="openAdd('${esc(t.id)}')" style="flex:1;padding:13px;background:rgba(200,168,120,0.1);border:1px solid rgba(200,168,120,0.2);border-radius:12px;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer">✏ Upravit</button>
+      <button onclick="confirmDelete('${esc(t.id)}')" class="delete-btn" style="flex:1">Smazat</button>
+    </div>
+  `;
+
+  showView('detail');
+}
+
+function closeDetail() {
+  currentDetailId = null;
+  showView('list');
+}
+
+// ─── DELETE ──────────────────────────────────────────────────────────────
+function confirmDelete(id) {
+  const t = teas.find(x => x.id === id);
+  document.getElementById('modal-title').textContent = `Smazat „${t ? t.name : 'čaj'}"?`;
+  document.getElementById('modal-confirm').onclick = () => { deleteTea(id); closeModal(); };
+  document.getElementById('modal').classList.add('open');
+}
+
+function deleteTea(id) {
+  teas = teas.filter(t => t.id !== id);
+  save();
+  closeDetail();
+  renderList();
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+
+// ─── TEAPOTS ─────────────────────────────────────────────────────────────
+function renderTeapotManage() {
+  const list = document.getElementById('teapot-manage-list');
+  if (teapots.length === 0) {
+    list.innerHTML = `<div style="font-size:13px;color:var(--text4);font-family:'Crimson Pro',serif;text-align:center;padding:20px 0">Žádné konvičky</div>`;
+    return;
+  }
+  list.innerHTML = teapots.map((tp, i) => `
+    <div class="teapot-list-item">
+      <span class="teapot-item-name">🫖 ${esc(tp)}</span>
+      <button class="teapot-delete-btn" onclick="deleteTeapot(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addTeapot() {
+  const input = document.getElementById('new-teapot-input');
+  const val = input.value.trim();
+  if (!val || teapots.includes(val)) { input.value = ''; return; }
+  teapots.push(val);
+  saveTeapots();
+  input.value = '';
+  renderTeapotManage();
+}
+
+function deleteTeapot(i) {
+  teapots.splice(i, 1);
+  saveTeapots();
+  renderTeapotManage();
+}
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────────────────
+function exportData() {
+  const data = { version: 1, exported: new Date().toISOString(), teas, teapots };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cajovy-denik-zaloha-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('import-status');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.teas || !Array.isArray(data.teas)) throw new Error('bad format');
+      let added = 0;
+      const existingIds = new Set(teas.map(t => t.id));
+      for (const t of data.teas) {
+        if (!existingIds.has(t.id)) { teas.unshift(t); added++; }
+      }
+      if (Array.isArray(data.teapots)) {
+        for (const tp of data.teapots) {
+          if (!teapots.includes(tp)) teapots.push(tp);
+        }
+        saveTeapots();
+      }
+      save();
+      renderList();
+      renderTeapotManage();
+      status.style.color = '#7aa87e';
+      status.textContent = `✓ Importováno ${added} nových čajů`;
+    } catch (err) {
+      status.style.color = 'var(--danger-text)';
+      status.textContent = '✕ Chyba při importu — zkontroluj soubor';
+    }
+    e.target.value = '';
+    setTimeout(() => { status.textContent = ''; }, 4000);
+  };
+  reader.readAsText(file);
+}
+
+// ─── CROP ENGINE ─────────────────────────────────────────────────────────
+let cropImg = new Image();
+let cropAspectW = 1, cropAspectH = 1;
+let cropZoom = 1;
+let cropOffX = 0, cropOffY = 0;
+let cropDragging = false;
+let cropLastX = 0, cropLastY = 0;
+let cropStageW = 0, cropStageH = 0;
+let cropFrameW = 0, cropFrameH = 0;
+let cropPinchDist = 0;
+
+function openCrop(src) {
+  const img = new Image();
+  img.onload = () => {
+    cropImg = img;
+    cropOffX = 0; cropOffY = 0;
+    document.getElementById('crop-zoom').value = 100;
+    document.querySelectorAll('.crop-aspect-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+    cropAspectW = 1; cropAspectH = 1;
+    document.getElementById('crop-overlay').classList.add('open');
+    initCropCanvas();
+    drawCrop();
+  };
+  img.src = src;
+}
+
+function initCropCanvas() {
+  const wrap = document.getElementById('crop-stage-wrap');
+  const stageW = Math.min(wrap.clientWidth || 480, 480);
+  cropStageW = stageW;
+  const frameSize = stageW * 0.85;
+  cropFrameW = frameSize;
+  cropFrameH = frameSize * (cropAspectH / cropAspectW);
+  cropStageH = cropFrameH;
+  const c = document.getElementById('crop-canvas');
+  const fc = document.getElementById('crop-frame-canvas');
+  c.width = stageW; c.height = cropStageH;
+  fc.width = stageW; fc.height = cropStageH;
+  c.style.height = cropStageH + 'px';
+  fc.style.height = cropStageH + 'px';
+  wrap.style.height = cropStageH + 'px';
+  const scaleX = cropFrameW / cropImg.naturalWidth;
+  const scaleY = cropFrameH / cropImg.naturalHeight;
+  cropZoom = Math.max(scaleX, scaleY);
+  clampOffset();
+}
+
+function setCropAspect(w, h, btn) {
+  cropAspectW = w; cropAspectH = h;
+  document.querySelectorAll('.crop-aspect-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  initCropCanvas();
+  drawCrop();
+}
+
+function setCropZoom(val) {
+  const fitZoom = Math.max(cropFrameW / cropImg.naturalWidth, cropFrameH / cropImg.naturalHeight);
+  cropZoom = fitZoom * (val / 100);
+  clampOffset();
+  drawCrop();
+}
+
+function clampOffset() {
+  const hw = (cropImg.naturalWidth * cropZoom) / 2;
+  const hh = (cropImg.naturalHeight * cropZoom) / 2;
+  const maxDx = Math.max(0, hw - cropFrameW / 2);
+  const maxDy = Math.max(0, hh - cropFrameH / 2);
+  cropOffX = Math.max(-maxDx, Math.min(maxDx, cropOffX));
+  cropOffY = Math.max(-maxDy, Math.min(maxDy, cropOffY));
+}
+
+function drawCrop() {
+  const c = document.getElementById('crop-canvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#0f0c07';
+  ctx.fillRect(0, 0, c.width, c.height);
+  const cx = c.width / 2 + cropOffX;
+  const cy = c.height / 2 + cropOffY;
+  const iw = cropImg.naturalWidth * cropZoom;
+  const ih = cropImg.naturalHeight * cropZoom;
+  ctx.drawImage(cropImg, cx - iw/2, cy - ih/2, iw, ih);
+  drawFrameOverlay();
+}
+
+function drawFrameOverlay() {
+  const fc = document.getElementById('crop-frame-canvas');
+  const ctx = fc.getContext('2d');
+  ctx.clearRect(0, 0, fc.width, fc.height);
+  const fx = (fc.width - cropFrameW) / 2;
+  const fy = (fc.height - cropFrameH) / 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, fc.width, fc.height);
+  ctx.clearRect(fx, fy, cropFrameW, cropFrameH);
+  ctx.strokeStyle = 'rgba(200,168,120,0.85)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(fx, fy, cropFrameW, cropFrameH);
+  ctx.strokeStyle = 'rgba(200,168,120,0.2)';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath(); ctx.moveTo(fx + cropFrameW*i/3, fy); ctx.lineTo(fx + cropFrameW*i/3, fy + cropFrameH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx, fy + cropFrameH*i/3); ctx.lineTo(fx + cropFrameW, fy + cropFrameH*i/3); ctx.stroke();
+  }
+  const hs = 16;
+  ctx.strokeStyle = 'rgba(200,168,120,1)';
+  ctx.lineWidth = 2.5;
+  [[fx,fy,1,1],[fx+cropFrameW,fy,-1,1],[fx,fy+cropFrameH,1,-1],[fx+cropFrameW,fy+cropFrameH,-1,-1]].forEach(([x,y,dx,dy]) => {
+    ctx.beginPath(); ctx.moveTo(x, y+dy*hs); ctx.lineTo(x, y); ctx.lineTo(x+dx*hs, y); ctx.stroke();
+  });
+}
+
+function closeCrop(doConfirm) {
+  if (doConfirm) {
+    const out = document.createElement('canvas');
+    out.width = 800;
+    out.height = Math.round(800 * (cropAspectH / cropAspectW));
+    const ctx = out.getContext('2d');
+    const cx = cropImg.naturalWidth / 2 - cropOffX / cropZoom;
+    const cy = cropImg.naturalHeight / 2 - cropOffY / cropZoom;
+    const srcW = cropFrameW / cropZoom;
+    const srcH = cropFrameH / cropZoom;
+    ctx.drawImage(cropImg, cx - srcW/2, cy - srcH/2, srcW, srcH, 0, 0, out.width, out.height);
+    formPhoto = out.toDataURL('image/jpeg', 0.88);
+    formPhotoPreview = formPhoto;
+    formPhotoAspectW = cropAspectW;
+    formPhotoAspectH = cropAspectH;
+    renderPhotoPreview();
+  }
+  document.getElementById('crop-overlay').classList.remove('open');
+}
+
+// Drag
+document.getElementById('crop-stage-wrap').addEventListener('mousedown', e => {
+  cropDragging = true; cropLastX = e.clientX; cropLastY = e.clientY;
+});
+document.addEventListener('mousemove', e => {
+  if (!cropDragging) return;
+  cropOffX += e.clientX - cropLastX; cropOffY += e.clientY - cropLastY;
+  cropLastX = e.clientX; cropLastY = e.clientY;
+  clampOffset(); drawCrop();
+});
+document.addEventListener('mouseup', () => { cropDragging = false; });
+
+document.getElementById('crop-stage-wrap').addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    cropPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  } else {
+    cropDragging = true; cropLastX = e.touches[0].clientX; cropLastY = e.touches[0].clientY;
+  }
+}, {passive:false});
+
+document.getElementById('crop-stage-wrap').addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const fitZoom = Math.max(cropFrameW / cropImg.naturalWidth, cropFrameH / cropImg.naturalHeight);
+    cropZoom = Math.max(fitZoom, Math.min(fitZoom * 3, cropZoom * (dist / cropPinchDist)));
+    cropPinchDist = dist;
+    document.getElementById('crop-zoom').value = Math.round((cropZoom / fitZoom) * 100);
+    clampOffset(); drawCrop();
+  } else if (cropDragging) {
+    cropOffX += e.touches[0].clientX - cropLastX; cropOffY += e.touches[0].clientY - cropLastY;
+    cropLastX = e.touches[0].clientX; cropLastY = e.touches[0].clientY;
+    clampOffset(); drawCrop();
+  }
+}, {passive:false});
+
+document.getElementById('crop-stage-wrap').addEventListener('touchend', () => { cropDragging = false; });
+
+// ─── INIT ────────────────────────────────────────────────────────────────
+document.getElementById('f-name').addEventListener('input', checkSave);
+renderList();
+</script>
+
+</body>
+</html>
