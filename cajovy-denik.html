@@ -232,6 +232,7 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <input class="search-input" id="search-input" placeholder="Hledat čaj…" oninput="renderList()">
     </div>
     <div class="filter-row" id="filter-row"></div>
+    <div class="filter-row" id="filter-teapot-row"></div>
     <div class="sort-row">
       <span class="sort-label">Řadit:</span>
       <button class="sort-btn active" onclick="setSort('newest',this)">Nejnovější</button>
@@ -448,12 +449,28 @@ function showView(name,navBtn){
 }
 
 // FILTER CHIPS
+let _filterTeapot='';
+
 function renderFilterRow(){
   const row=document.getElementById('filter-row');
   const types=['Vše',...TEA_TYPES];
   row.innerHTML=types.map(t=>`<button class="filter-chip${(_filterType===t||(!_filterType&&t==='Vše')?' active':'')}" onclick="setFilter('${t}')">${t}</button>`).join('');
 }
+
+function renderTeapotFilterRow(){
+  const row=document.getElementById('filter-teapot-row');
+  if(!row)return;
+  if(!teapots.length){row.innerHTML='';return}
+  row.innerHTML=[`<button class="filter-chip${!_filterTeapot?' active':''}" onclick="setTeapotFilter('')">🫖 Vše</button>`,
+    ...teapots.map(tp=>{
+      const n=teapotName(tp);
+      return `<button class="filter-chip${_filterTeapot===n?' active':''}" onclick="setTeapotFilter('${esc(n)}')">${esc(n)}</button>`;
+    })
+  ].join('');
+}
+
 function setFilter(type){_filterType=type==='Vše'?'':type;renderFilterRow();renderList()}
+function setTeapotFilter(tp){_filterTeapot=tp;renderTeapotFilterRow();renderList()}
 function setSort(mode,btn){_sortMode=mode;document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderList()}
 
 // LIST
@@ -463,6 +480,7 @@ function renderList(){
     t.name.toLowerCase().includes(q)||(t.origin||'').toLowerCase().includes(q)||(t.type||'').toLowerCase().includes(q)
   );
   if(_filterType)filtered=filtered.filter(t=>t.type===_filterType);
+  if(_filterTeapot)filtered=filtered.filter(t=>t.teapot===_filterTeapot);
   if(_sortMode==='alpha')filtered=[...filtered].sort((a,b)=>a.name.localeCompare(b.name,'cs'));
   else if(_sortMode==='rating')filtered=[...filtered].sort((a,b)=>(b.rating||0)-(a.rating||0));
   else if(_sortMode==='price')filtered=[...filtered].sort((a,b)=>{
@@ -473,6 +491,7 @@ function renderList(){
 
   const list=document.getElementById('tea-list');
   document.getElementById('tea-count').textContent=teas.length+' '+plural(teas.length,'čaj','čaje','čajů')+' v kolekci';
+  renderTeapotFilterRow();
   if(filtered.length===0){
     list.innerHTML=`<div class="empty"><div class="empty-icon">🍃</div><div class="empty-text">${teas.length===0?'Ještě žádný čaj':'Nic nenalezeno'}</div><div class="empty-sub">${teas.length===0?'Přidej svůj první čaj tlačítkem níže':''}</div></div>`;
     return;
@@ -1056,6 +1075,7 @@ document.getElementById('crop-stage-wrap').addEventListener('touchend',()=>{crop
 // INIT
 document.getElementById('f-name').addEventListener('input',checkSave);
 renderFilterRow();
+renderTeapotFilterRow();
 renderList();
 </script>
 </body>
