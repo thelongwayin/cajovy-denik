@@ -368,6 +368,10 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
       <div class="section-title">Přidat konvičku</div>
       <div class="teapot-manage-row">
         <input class="teapot-manage-input" id="new-teapot-input" placeholder="Název konvičky…" onkeydown="if(event.key==='Enter')addTeapot()">
+        <div class="input-wrap" style="width:90px;flex-shrink:0">
+          <input class="teapot-manage-input" id="new-teapot-volume" type="number" placeholder="ml" style="padding-right:28px" onkeydown="if(event.key==='Enter')addTeapot()">
+          <span class="input-unit">ml</span>
+        </div>
         <button class="teapot-add-btn" onclick="addTeapot()">+</button>
       </div>
       <div class="divider"></div>
@@ -418,7 +422,10 @@ const TYPE_COLORS={"Zelený":"#7a9e7e","Bílý":"#c8b99a","Žlutý":"#d4aa5c","O
 
 let teas=[],teapots=[];
 try{teas=JSON.parse(localStorage.getItem('caj-denik-teas')||'[]')}catch(e){teas=[]}
-try{teapots=JSON.parse(localStorage.getItem('caj-denik-teapots')||'["Kyūsu","Gaiwán","Tetsubin","Shiboridashi","Hohin"]')}catch(e){teapots=["Kyūsu","Gaiwán","Tetsubin","Shiboridashi","Hohin"]}
+try{teapots=JSON.parse(localStorage.getItem('caj-denik-teapots')||'[{"name":"Kyūsu","volume":null},{"name":"Gaiwán","volume":null},{"name":"Tetsubin","volume":null},{"name":"Shiboridashi","volume":null},{"name":"Hohin","volume":null}]');
+  // migrate old string format
+  teapots=teapots.map(tp=>typeof tp==='string'?{name:tp,volume:null}:tp);
+}catch(e){teapots=[{name:"Kyūsu",volume:null},{name:"Gaiwán",volume:null},{name:"Tetsubin",volume:null},{name:"Shiboridashi",volume:null},{name:"Hohin",volume:null}]}
 
 let editingId=null,currentDetailId=null,formPhoto=null,formPhotoPreview=null;
 let formPhotoAspectW=1,formPhotoAspectH=1,steepData=[];
@@ -585,7 +592,9 @@ function selectType(t){_selectedType=_selectedType===t?'':t;renderTypeChips(_sel
 function renderTeapotChips(sel){
   if(!teapots.length){document.getElementById('teapot-chips').innerHTML=`<span style="font-size:12px;color:var(--text4);font-family:'Crimson Pro',serif">Žádné konvičky</span>`;return}
   document.getElementById('teapot-chips').innerHTML=teapots.map(tp=>{
-    const s=sel===tp;return `<button class="chip${s?' selected':''}" onclick="selectTeapot('${esc(tp)}')">${esc(tp)}</button>`;
+    const n=teapotName(tp),v=teapotVolume(tp);
+    const s=sel===n;
+    return `<button class="chip${s?' selected':''}" onclick="selectTeapot('${esc(n)}')">${esc(n)}${v?` <span style="font-size:10px;opacity:.7">${v}ml</span>`:''}` +`</button>`;
   }).join('');
 }
 function selectTeapot(tp){_selectedTeapot=_selectedTeapot===tp?'':tp;renderTeapotChips(_selectedTeapot)}
@@ -685,6 +694,31 @@ function openDetail(id){
   if(t.volume)params+=`<div class="param-card"><div class="param-icon">💧</div><div class="param-label">Objem vody</div><div class="param-value">${esc(t.volume)}<span class="param-unit"> ml</span></div></div>`;
   if(t.teapot)params+=`<div class="param-card"><div class="param-icon">🫖</div><div class="param-label">Konvička</div><div class="param-value" style="font-size:15px">${esc(t.teapot)}</div></div>`;
 
+  // Teapot volume recalc
+  let recalcHtml='';
+  if(t.teapot&&t.grams&&t.volume){
+    const tp=teapots.find(x=>teapotName(x)===t.teapot);
+    const tpVol=tp?teapotVolume(tp):null;
+    if(tpVol){
+      const ratio=tpVol/parseFloat(t.volume);
+      const adjGrams=(parseFloat(t.grams)*ratio).toFixed(2);
+      recalcHtml=`<div style="background:rgba(200,168,120,.08);border:1px solid rgba(200,168,120,.18);border-radius:12px;padding:12px 16px;margin-bottom:20px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;font-family:'Crimson Pro',serif;margin-bottom:8px">Přepočet na konvičku (${tpVol} ml)</div>
+        <div style="display:flex;gap:16px;align-items:center">
+          <div>
+            <div style="font-size:10px;color:var(--text4);font-family:'Crimson Pro',serif">Doporučená gramáž</div>
+            <div style="font-size:26px;font-weight:700;color:var(--gold)">${adjGrams}<span style="font-size:14px;color:var(--text3)"> g</span></div>
+          </div>
+          <div style="color:var(--text4);font-size:20px">→</div>
+          <div style="font-size:12px;color:var(--text3);font-family:'Crimson Pro',serif;line-height:1.5">
+            ${t.grams}g na ${t.volume}ml<br>
+            × ${ratio.toFixed(3)} (poměr)
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
   // Price info
   let priceHtml='';
   if(t.price100&&t.grams){
@@ -743,6 +777,7 @@ function openDetail(id){
 
   document.getElementById('detail-body').innerHTML=`
     ${params?`<div class="params-grid">${params}</div>`:''}
+    ${recalcHtml}
     ${priceHtml}
     ${timerHtml}
     ${steepsHtml}
@@ -846,16 +881,52 @@ function deleteTea(id){teas=teas.filter(t=>t.id!==id);save();closeDetail();rende
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open')}
 
 // TEAPOTS
+function teapotName(tp){return typeof tp==='object'?tp.name:tp}
+function teapotVolume(tp){return typeof tp==='object'?(tp.volume||null):null}
+
 function renderTeapotManage(){
   const list=document.getElementById('teapot-manage-list');
   if(!teapots.length){list.innerHTML=`<div style="font-size:13px;color:var(--text4);font-family:'Crimson Pro',serif;text-align:center;padding:20px 0">Žádné konvičky</div>`;return}
-  list.innerHTML=teapots.map((tp,i)=>`<div class="teapot-list-item"><span class="teapot-item-name">🫖 ${esc(tp)}</span><button class="teapot-delete-btn" onclick="deleteTeapot(${i})">✕</button></div>`).join('');
+  list.innerHTML=teapots.map((tp,i)=>{
+    const n=teapotName(tp),v=teapotVolume(tp);
+    return `<div class="teapot-list-item">
+      <div style="flex:1">
+        <div class="teapot-item-name">🫖 ${esc(n)}</div>
+        ${v?`<div style="font-size:11px;color:var(--text3);font-family:'Crimson Pro',serif;margin-top:2px">Objem: ${v} ml</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="input-wrap" style="width:80px">
+          <input class="steep-input" type="number" placeholder="ml" value="${v||''}"
+            style="padding:5px 26px 5px 8px;font-size:13px"
+            oninput="setTeapotVolume(${i},this.value)"
+            onclick="event.stopPropagation()">
+          <span class="steep-unit">ml</span>
+        </div>
+        <button class="teapot-delete-btn" onclick="deleteTeapot(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
 }
+
+function setTeapotVolume(i,val){
+  const tp=teapots[i];
+  const name=teapotName(tp);
+  teapots[i]={name,volume:val?parseFloat(val):null};
+  saveTeapots();
+}
+
 function addTeapot(){
-  const input=document.getElementById('new-teapot-input');const val=input.value.trim();
-  if(!val||teapots.includes(val)){input.value='';return}
-  teapots.push(val);saveTeapots();input.value='';renderTeapotManage();
+  const input=document.getElementById('new-teapot-input');
+  const volInput=document.getElementById('new-teapot-volume');
+  const val=input.value.trim();
+  if(!val){return}
+  const exists=teapots.some(tp=>teapotName(tp)===val);
+  if(exists){input.value='';return}
+  const vol=volInput&&volInput.value?parseFloat(volInput.value):null;
+  teapots.push({name:val,volume:vol});
+  saveTeapots();input.value='';if(volInput)volInput.value='';renderTeapotManage();
 }
+
 function deleteTeapot(i){teapots.splice(i,1);saveTeapots();renderTeapotManage()}
 
 // EXPORT/IMPORT
