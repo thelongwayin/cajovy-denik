@@ -301,25 +301,19 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
               <div class="input-wrap"><input class="field-input with-unit" id="f-price100" type="number" placeholder="300" oninput="calcPrice()"><span class="input-unit">Kč</span></div>
             </div>
             <div class="field" style="margin-bottom:8px">
-              <div class="field-label">Počet nálevů</div>
-              <div class="input-wrap"><input class="field-input with-unit" id="f-steepcount" type="number" placeholder="3" oninput="calcPrice()"><span class="input-unit">×</span></div>
+              <div class="field-label">Gramáž/příprava</div>
+              <div class="input-wrap"><input class="field-input with-unit" id="f-grams" type="number" placeholder="3" oninput="calcPrice()"><span class="input-unit">g</span></div>
             </div>
           </div>
           <div class="price-result" id="price-result" style="display:none">
             <div class="price-item"><div class="price-item-label">Cena/gram</div><div class="price-item-value" id="pr-gram">—</div></div>
-            <div class="price-item"><div class="price-item-label">Cena/nálev</div><div class="price-item-value" id="pr-steep">—</div><div class="price-item-sub" id="pr-steep-sub"></div></div>
+            <div class="price-item"><div class="price-item-label">Cena/příprava</div><div class="price-item-value" id="pr-steep">—</div><div class="price-item-sub" id="pr-steep-sub"></div></div>
           </div>
         </div>
       </div>
-      <div class="two-col">
-        <div class="field">
-          <label class="field-label">Gramáž</label>
-          <div class="input-wrap"><input class="field-input with-unit" id="f-grams" type="number" placeholder="3" oninput="calcPrice()"><span class="input-unit">g</span></div>
-        </div>
-        <div class="field">
-          <label class="field-label">Objem vody</label>
-          <div class="input-wrap"><input class="field-input with-unit" id="f-volume" type="number" placeholder="150"><span class="input-unit">ml</span></div>
-        </div>
+      <div class="field">
+        <label class="field-label">Objem vody</label>
+        <div class="input-wrap"><input class="field-input with-unit" id="f-volume" type="number" placeholder="150"><span class="input-unit">ml</span></div>
       </div>
       <div class="field">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -355,6 +349,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
     <div class="header">
       <div class="header-eyebrow">Nastavení</div>
       <div class="header-title">Nastavení</div>
+    </div>
+    <div class="settings-section">
+      <div class="section-title">Statistiky kolekce</div>
+      <div id="stats-section"></div>
+      <div class="divider"></div>
     </div>
     <div class="settings-section">
       <div class="section-title">Záloha dat</div>
@@ -444,7 +443,7 @@ function showView(name,navBtn){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   if(navBtn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>{if(b.textContent.trim()===navBtn.textContent.trim())b.classList.add('active')})}
-  if(name==='settings')renderTeapotManage();
+  if(name==='settings'){renderTeapotManage();renderStats()}
   if(name==='list')renderList();
 }
 
@@ -477,7 +476,7 @@ function setSort(mode,btn){_sortMode=mode;document.querySelectorAll('.sort-btn')
 function renderList(){
   const q=(document.getElementById('search-input').value||'').toLowerCase();
   let filtered=teas.filter(t=>
-    t.name.toLowerCase().includes(q)||(t.origin||'').toLowerCase().includes(q)||(t.type||'').toLowerCase().includes(q)
+    t.name.toLowerCase().includes(q)||(t.origin||'').toLowerCase().includes(q)||(t.type||'').toLowerCase().includes(q)||(t.notes||'').toLowerCase().includes(q)
   );
   if(_filterType)filtered=filtered.filter(t=>t.type===_filterType);
   if(_filterTeapot)filtered=filtered.filter(t=>t.teapot===_filterTeapot);
@@ -490,7 +489,10 @@ function renderList(){
   });
 
   const list=document.getElementById('tea-list');
-  document.getElementById('tea-count').textContent=teas.length+' '+plural(teas.length,'čaj','čaje','čajů')+' v kolekci';
+  // Collection value
+  const totalVal=teas.filter(t=>t.price100).reduce((s,t)=>s+parseFloat(t.price100),0);
+  const valStr=totalVal>0?` · kolekce ~${totalVal.toFixed(0)} Kč`:'';
+  document.getElementById('tea-count').textContent=teas.length+' '+plural(teas.length,'čaj','čaje','čajů')+' v kolekci'+valStr;
   renderTeapotFilterRow();
   if(filtered.length===0){
     list.innerHTML=`<div class="empty"><div class="empty-icon">🍃</div><div class="empty-text">${teas.length===0?'Ještě žádný čaj':'Nic nenalezeno'}</div><div class="empty-sub">${teas.length===0?'Přidej svůj první čaj tlačítkem níže':''}</div></div>`;
@@ -498,7 +500,10 @@ function renderList(){
   }
   list.innerHTML=filtered.map(t=>{
     const col=TYPE_COLORS[t.type]||'#888';
-    const thumb=t.photo?`<img src="${t.photo}" alt="${esc(t.name)}">`:' 🍃';
+    const r=t.rating||0;
+    // Border color by rating
+    const borderCol=r>=8?'rgba(212,180,122,0.5)':r>0&&r<=3?'rgba(180,80,80,0.5)':'rgba(255,255,255,0.13)';
+    const boxShadow=r>=8?';box-shadow:0 0 0 1px rgba(212,180,122,0.15)':r>0&&r<=3?';box-shadow:0 0 0 1px rgba(180,80,80,0.12)':'';    const thumb=t.photo?`<img src="${t.photo}" alt="${esc(t.name)}">`:' 🍃';
     const tag=t.type?`<span class="tag" style="background:${col}22;color:${col};border:1px solid ${col}44">${esc(t.type)}</span>`:'';
     const origin=t.origin?`<span class="origin-tag">${esc(t.origin)}</span>`:'';
     const grams=t.grams?`<span class="meta-item">⚖ ${esc(t.grams)}g</span>`:'';
@@ -512,14 +517,16 @@ function renderList(){
     const teapot=t.teapot?`<span class="meta-item">🫖 ${esc(t.teapot)}${teapotAdj?`<span style="color:var(--gold);font-size:10px">${teapotAdj}</span>`:''}</span>`:'';
     const steepCount=(t.steeps||[]).filter(s=>s.enabled).length;
     const steepC=steepCount?`<span class="meta-item">🔄 ${steepCount}×</span>`:'';
-    const stars=t.rating?`<span class="meta-item">★ ${t.rating}/10</span>`:'';
+    const stars=r?`<span class="meta-item" style="${r>=8?'color:var(--gold);font-weight:600':''}">★ ${r}/10</span>`:'';
     const pricePerGram=t.price100?`<span class="meta-item">💰 ${(parseFloat(t.price100)/50).toFixed(2)} Kč/g</span>`:'';
-    return `<div class="tea-card" onclick="openDetail('${esc(t.id)}')">
+    const dateStr=t.created?new Date(t.created).toLocaleDateString('cs-CZ',{day:'numeric',month:'short',year:'numeric'}):'';
+    return `<div class="tea-card" onclick="openDetail('${esc(t.id)}')" style="border-color:${borderCol}${boxShadow}">
       <div class="tea-thumb" style="background:${col}22">${thumb}</div>
       <div class="tea-info">
         <div class="tea-name">${esc(t.name)}</div>
         <div class="tea-tags">${tag}${origin}</div>
         <div class="tea-meta">${grams}${vol}${teapot}${steepC}${stars}${pricePerGram}</div>
+        ${dateStr?`<div style="font-size:10px;color:var(--text4);font-family:'Crimson Pro',serif;margin-top:3px">${dateStr}</div>`:''}
       </div>
       <div class="tea-arrow">›</div>
     </div>`;
@@ -547,14 +554,13 @@ function setFormRating(n){
 function calcPrice(){
   const p=parseFloat(document.getElementById('f-price100').value);
   const g=parseFloat(document.getElementById('f-grams').value);
-  const sc=parseFloat(document.getElementById('f-steepcount').value)||1;
   const res=document.getElementById('price-result');
   if(!p||!g){res.style.display='none';return}
   const perGram=p/50; // 50g balení
-  const perSteep=(perGram*g)/sc;
+  const perPrep=perGram*g;
   document.getElementById('pr-gram').textContent=perGram.toFixed(2)+' Kč';
-  document.getElementById('pr-steep').textContent=perSteep.toFixed(2)+' Kč';
-  document.getElementById('pr-steep-sub').textContent=`${g}g / ${sc} nálevů`;
+  document.getElementById('pr-steep').textContent=perPrep.toFixed(2)+' Kč';
+  document.getElementById('pr-steep-sub').textContent=`za ${g}g (jedna příprava)`;
   res.style.display='grid';
 }
 
@@ -583,7 +589,6 @@ function openAdd(editId){
   document.getElementById('f-volume').value=t?(t.volume||''):'';
   document.getElementById('f-notes').value=t?(t.notes||''):'';
   document.getElementById('f-price100').value=t?(t.price100||''):'';
-  document.getElementById('f-steepcount').value=t?(t.steepcount||''):'';
   document.getElementById('price-result').style.display='none';
   if(t&&t.price100)calcPrice();
   renderFormRating(t?t.rating:0);
@@ -645,10 +650,18 @@ function renderSteeps(){
           </div>
           <div class="steep-field-wrap">
             <div class="steep-label">Teplota</div>
-            <div class="steep-input-wrap">
-              <input class="steep-input" type="number" placeholder="80" value="${esc(s.temp)}"
-                oninput="steepData[${i}].temp=this.value">
-              <span class="steep-unit">°C</span>
+            <div style="display:flex;gap:4px;align-items:center">
+              <div class="steep-input-wrap" style="flex:1">
+                <input class="steep-input" type="number" placeholder="75" value="${esc(s.temp)}"
+                  oninput="steepData[${i}].temp=this.value">
+                <span class="steep-unit">°C</span>
+              </div>
+              <span style="color:var(--text4);font-size:11px">–</span>
+              <div class="steep-input-wrap" style="flex:1">
+                <input class="steep-input" type="number" placeholder="80" value="${esc(s.tempMax||'')}"
+                  oninput="steepData[${i}].tempMax=this.value">
+                <span class="steep-unit">°C</span>
+              </div>
             </div>
           </div>
           <button class="steep-toggle active" onclick="removeSteep(${i})" title="Odebrat" style="color:var(--danger-text);border-color:var(--danger-border)">✕</button>
@@ -683,7 +696,6 @@ function saveTea(){
     grams:document.getElementById('f-grams').value.trim(),
     volume:document.getElementById('f-volume').value.trim(),
     price100:document.getElementById('f-price100').value.trim(),
-    steepcount:document.getElementById('f-steepcount').value.trim(),
     rating:_formRating,
     steeps:steepData.map(s=>({...s})),
     notes:document.getElementById('f-notes').value.trim(),
@@ -715,7 +727,7 @@ function openDetail(id){
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${tag}${t.origin?`<span style="font-size:12px;color:rgba(255,255,255,.8);font-family:'Crimson Pro',serif;text-shadow:0 1px 4px rgba(0,0,0,.6)">${esc(t.origin)}</span>`:''}${starsHtml}</div>`;
 
   let params='';
-  if(t.grams)params+=`<div class="param-card"><div class="param-icon">⚖</div><div class="param-label">Gramáž</div><div class="param-value">${esc(t.grams)}<span class="param-unit"> g</span></div></div>`;
+  if(t.grams)params+=`<div class="param-card"><div class="param-icon">⚖</div><div class="param-label">Gramáž/nálev</div><div class="param-value">${esc(t.grams)}<span class="param-unit"> g</span></div></div>`;
   if(t.volume)params+=`<div class="param-card"><div class="param-icon">💧</div><div class="param-label">Objem vody</div><div class="param-value">${esc(t.volume)}<span class="param-unit"> ml</span></div></div>`;
   if(t.teapot)params+=`<div class="param-card"><div class="param-icon">🫖</div><div class="param-label">Konvička</div><div class="param-value" style="font-size:15px">${esc(t.teapot)}</div></div>`;
 
@@ -747,12 +759,11 @@ function openDetail(id){
   // Price info
   let priceHtml='';
   if(t.price100&&t.grams){
-    const pg=parseFloat(t.price100)/50; // 50g balení
-    const sc=parseFloat(t.steepcount)||1;
-    const ps=(pg*parseFloat(t.grams))/sc;
+    const pg=parseFloat(t.price100)/50;
+    const pp=pg*parseFloat(t.grams);
     priceHtml=`<div class="params-grid" style="margin-bottom:20px">
       <div class="param-card"><div class="param-icon">💰</div><div class="param-label">Cena/gram</div><div class="param-value" style="font-size:17px">${pg.toFixed(2)}<span class="param-unit"> Kč</span></div></div>
-      <div class="param-card"><div class="param-icon">🍵</div><div class="param-label">Cena/nálev</div><div class="param-value" style="font-size:17px">${ps.toFixed(2)}<span class="param-unit"> Kč</span></div></div>
+      <div class="param-card"><div class="param-icon">🍵</div><div class="param-label">Cena/příprava</div><div class="param-value" style="font-size:17px">${pp.toFixed(2)}<span class="param-unit"> Kč</span></div><div style="font-size:10px;color:var(--text3);font-family:'Crimson Pro',serif">za ${t.grams}g</div></div>
     </div>`;
   }
 
@@ -783,7 +794,7 @@ function openDetail(id){
           <div class="steep-detail-info">
             <div class="steep-detail-params">
               ${s.time?`<div class="steep-detail-item">⏱ ${esc(s.time)}<span> s</span></div>`:''}
-              ${s.temp?`<div class="steep-detail-item">🌡 ${esc(s.temp)}<span> °C</span></div>`:''}
+              ${s.temp?`<div class="steep-detail-item">🌡 ${esc(s.temp)}${s.tempMax?'–'+esc(s.tempMax):''}<span> °C</span></div>`:''}
             </div>
             ${s.note?`<div class="steep-detail-note">${esc(s.note)}</div>`:''}
           </div>
@@ -807,7 +818,6 @@ function openDetail(id){
     ${timerHtml}
     ${steepsHtml}
     ${notesHtml}
-    ${qrHtml}
     <div style="display:flex;gap:10px;margin-bottom:20px">
       <button onclick="openAdd('${esc(t.id)}')" style="flex:1;padding:13px;background:rgba(200,168,120,.1);border:1px solid rgba(200,168,120,.2);border-radius:12px;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer">✏ Upravit</button>
       <button onclick="confirmDelete('${esc(t.id)}')" class="delete-btn" style="flex:1">Smazat</button>
@@ -815,8 +825,6 @@ function openDetail(id){
 
   showView('detail');
   timerReset();
-  // Draw QR
-  setTimeout(()=>drawQR(t),100);
 }
 
 function closeDetail(){currentDetailId=null;timerStop();showView('list')}
@@ -843,7 +851,23 @@ function timerToggle(target){
     document.getElementById('timer-start-btn').className='timer-btn timer-btn-stop';
     _timerInterval=setInterval(()=>{
       _timerSeconds--;updateTimerDisplay();
-      if(_timerSeconds<=0){timerStop();document.getElementById('timer-display').textContent='✓ Hotovo!';document.getElementById('timer-display').style.fontSize='32px'}
+      if(_timerSeconds<=0){
+        timerStop();
+        const disp=document.getElementById('timer-display');
+        if(disp){disp.textContent='✓ Hotovo!';disp.style.fontSize='32px'}
+        // Sound signal
+        try{
+          const ctx=new(window.AudioContext||window.webkitAudioContext)();
+          [0,0.3,0.6].forEach(delay=>{
+            const o=ctx.createOscillator(),g=ctx.createGain();
+            o.connect(g);g.connect(ctx.destination);
+            o.frequency.value=880;o.type='sine';
+            g.gain.setValueAtTime(0.4,ctx.currentTime+delay);
+            g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.4);
+            o.start(ctx.currentTime+delay);o.stop(ctx.currentTime+delay+0.4);
+          });
+        }catch(e){}
+      }
     },1000);
   }
 }
@@ -905,6 +929,47 @@ function confirmDelete(id){
 function deleteTea(id){teas=teas.filter(t=>t.id!==id);save();closeDetail();renderList()}
 function closeModal(e){if(!e||e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open')}
 
+function renderStats(){
+  const el=document.getElementById('stats-section');if(!el)return;
+  if(!teas.length){el.innerHTML=`<div style="font-size:13px;color:var(--text4);font-family:'Crimson Pro',serif;text-align:center;padding:10px 0">Zatím žádné čaje</div>`;return}
+  const byType={};TEA_TYPES.forEach(t=>byType[t]=0);
+  teas.forEach(t=>{if(t.type)byType[t.type]=(byType[t.type]||0)+1});
+  const rated=teas.filter(t=>t.rating);
+  const avgRating=rated.length?rated.reduce((s,t)=>s+(t.rating||0),0)/rated.length:0;
+  const withPrice=teas.filter(t=>t.price100);
+  const cheapest=withPrice.length?[...withPrice].sort((a,b)=>parseFloat(a.price100)-parseFloat(b.price100))[0]:null;
+  const priciest=withPrice.length?[...withPrice].sort((a,b)=>parseFloat(b.price100)-parseFloat(a.price100))[0]:null;
+  const totalVal=withPrice.reduce((s,t)=>s+parseFloat(t.price100),0);
+
+  const typeRows=Object.entries(byType).filter(([,v])=>v>0).map(([k,v])=>{
+    const col=TYPE_COLORS[k]||'#888';
+    const pct=Math.round(v/teas.length*100);
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:12px;color:${col};font-family:'Crimson Pro',serif">${k}</span>
+        <span style="font-size:12px;color:var(--text3);font-family:'Crimson Pro',serif">${v} čaj${v===1?'':'e'} · ${pct}%</span>
+      </div>
+      <div style="height:4px;background:var(--surface);border-radius:2px">
+        <div style="height:4px;background:${col};border-radius:2px;width:${pct}%;transition:width .5s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="param-card"><div class="param-icon">🍵</div><div class="param-label">Čajů celkem</div><div class="param-value">${teas.length}</div></div>
+      <div class="param-card"><div class="param-icon">★</div><div class="param-label">Prům. hodnocení</div><div class="param-value">${avgRating?avgRating.toFixed(1)+'/10':'—'}</div></div>
+      ${totalVal?`<div class="param-card"><div class="param-icon">💰</div><div class="param-label">Hodnota kolekce</div><div class="param-value" style="font-size:15px">${totalVal.toFixed(0)} Kč</div></div>`:''}
+      ${rated.length?`<div class="param-card"><div class="param-icon">🏆</div><div class="param-label">Nejlíp hodnocený</div><div class="param-value" style="font-size:13px;line-height:1.3">${esc([...rated].sort((a,b)=>b.rating-a.rating)[0].name)}</div></div>`:''}
+    </div>
+    ${cheapest&&priciest&&cheapest.id!==priciest.id?`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="param-card"><div class="param-icon">📉</div><div class="param-label">Nejlevnější/g</div><div class="param-value" style="font-size:13px">${esc(cheapest.name)}</div><div style="font-size:11px;color:var(--gold)">${(parseFloat(cheapest.price100)/50).toFixed(2)} Kč/g</div></div>
+      <div class="param-card"><div class="param-icon">📈</div><div class="param-label">Nejdražší/g</div><div class="param-value" style="font-size:13px">${esc(priciest.name)}</div><div style="font-size:11px;color:var(--gold)">${(parseFloat(priciest.price100)/50).toFixed(2)} Kč/g</div></div>
+    </div>`:''}
+    <div style="margin-top:4px">${typeRows}</div>`;
+}
+
 // TEAPOTS
 function teapotName(tp){return typeof tp==='object'?tp.name:tp}
 function teapotVolume(tp){return typeof tp==='object'?(tp.volume||null):null}
@@ -913,13 +978,12 @@ function renderTeapotManage(){
   const list=document.getElementById('teapot-manage-list');
   if(!teapots.length){list.innerHTML=`<div style="font-size:13px;color:var(--text4);font-family:'Crimson Pro',serif;text-align:center;padding:20px 0">Žádné konvičky</div>`;return}
   list.innerHTML=teapots.map((tp,i)=>{
-    const n=teapotName(tp),v=teapotVolume(tp);
-    return `<div class="teapot-list-item">
-      <div style="flex:1">
-        <div class="teapot-item-name">🫖 ${esc(n)}</div>
-        ${v?`<div style="font-size:11px;color:var(--text3);font-family:'Crimson Pro',serif;margin-top:2px">Objem: ${v} ml</div>`:''}
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
+    const n=teapotName(tp),v=teapotVolume(tp),note=typeof tp==='object'?(tp.note||''):'';
+    return `<div class="teapot-list-item" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1">
+          <div class="teapot-item-name">🫖 ${esc(n)}</div>
+        </div>
         <div class="input-wrap" style="width:80px">
           <input class="steep-input" type="number" placeholder="ml" value="${v||''}"
             style="padding:5px 26px 5px 8px;font-size:13px"
@@ -929,15 +993,20 @@ function renderTeapotManage(){
         </div>
         <button class="teapot-delete-btn" onclick="deleteTeapot(${i})">✕</button>
       </div>
+      <input class="steep-note-input" placeholder="Poznámka (materiál, původ…)" value="${esc(note)}"
+        oninput="setTeapotNote(${i},this.value)"
+        onclick="event.stopPropagation()">
     </div>`;
   }).join('');
 }
 
 function setTeapotVolume(i,val){
-  const tp=teapots[i];
-  const name=teapotName(tp);
-  teapots[i]={name,volume:val?parseFloat(val):null};
-  saveTeapots();
+  const tp=teapots[i];const name=teapotName(tp);const note=typeof tp==='object'?(tp.note||''):'';
+  teapots[i]={name,volume:val?parseFloat(val):null,note};saveTeapots();
+}
+function setTeapotNote(i,val){
+  const tp=teapots[i];const name=teapotName(tp);const volume=teapotVolume(tp);
+  teapots[i]={name,volume,note:val};saveTeapots();
 }
 
 function addTeapot(){
@@ -956,7 +1025,7 @@ function deleteTeapot(i){teapots.splice(i,1);saveTeapots();renderTeapotManage()}
 
 // EXPORT/IMPORT
 function exportData(){
-  const blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),teas,teapots},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({version:2,exported:new Date().toISOString(),teas,teapots},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.href=url;a.download=`cajovy-denik-zaloha-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);
 }
@@ -967,10 +1036,14 @@ function importData(e){
   reader.onload=ev=>{
     try{
       const data=JSON.parse(ev.target.result);if(!Array.isArray(data.teas))throw new Error();
+      // Import teas - merge (skip duplicates)
       let added=0;const ids=new Set(teas.map(t=>t.id));
       for(const t of data.teas)if(!ids.has(t.id)){teas.unshift(t);added++}
-      if(Array.isArray(data.teapots))for(const tp of data.teapots)if(!teapots.includes(tp))teapots.push(tp);
-      saveTeapots();save();renderList();renderTeapotManage();
+      // Import teapots - REPLACE entirely (not merge) to avoid duplicates with defaults
+      if(Array.isArray(data.teapots)&&data.teapots.length>0){
+        teapots=data.teapots.map(tp=>typeof tp==='string'?{name:tp,volume:null}:tp);
+      }
+      saveTeapots();save();renderList();renderTeapotManage();renderTeapotFilterRow();
       status.style.color='#7aa87e';status.textContent=`✓ Importováno ${added} nových čajů`;
     }catch(err){status.style.color='var(--danger-text)';status.textContent='✕ Chyba při importu'}
     e.target.value='';setTimeout(()=>{status.textContent=''},4000);
